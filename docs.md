@@ -4,7 +4,7 @@
 
 **Flags**
 - `--checkpoint-dir`: Directory to save checkpoint in. Required.
-- `--style`: Path to style image. Required.
+- `--style-path`: Path to style image(s). Required.
 - `--train-path`: Path to training images folder. Default: `data/train2014`.
 - `--test`: Path to content image to test network on at at every checkpoint iteration. Default: no image.
 - `--test-dir`: Path to directory to save test images in. Required if `--test` is passed a value.

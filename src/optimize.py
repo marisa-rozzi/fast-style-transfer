@@ -10,7 +10,7 @@ CONTENT_LAYER = 'relu4_2'
 DEVICES = 'CUDA_VISIBLE_DEVICES'
 
 # np arr, np arr
-def optimize(content_targets, style_target, content_weight, style_weight,
+def optimize(content_targets, style_targets, content_weight, style_weight,
              tv_weight, vgg_path, epochs=2, print_iterations=1000,
              batch_size=4, save_path='saver/fns.ckpt', slow=False,
              learning_rate=1e-3, debug=False):
@@ -21,23 +21,25 @@ def optimize(content_targets, style_target, content_weight, style_weight,
         print("Train set has been trimmed slightly..")
         content_targets = content_targets[:-mod] 
 
-    style_features = {}
+    num_styles = len(style_targets)
+    style_features = [{} for i in range(num_styles)]
 
     batch_shape = (batch_size,256,256,3)
-    style_shape = (1,) + style_target.shape
-    print(style_shape)
+    style_shapes = [(1,) + style_targets[i].shape for i in range(num_styles)]
+    print(style_shapes)
 
     # precompute style features
     with tf.Graph().as_default(), tf.device('/cpu:0'), tf.Session() as sess:
-        style_image = tf.placeholder(tf.float32, shape=style_shape, name='style_image')
-        style_image_pre = vgg.preprocess(style_image)
-        net = vgg.net(vgg_path, style_image_pre)
-        style_pre = np.array([style_target])
-        for layer in STYLE_LAYERS:
-            features = net[layer].eval(feed_dict={style_image:style_pre})
-            features = np.reshape(features, (-1, features.shape[3]))
-            gram = np.matmul(features.T, features) / features.size
-            style_features[layer] = gram
+        for i in range(num_styles):
+            style_image = tf.placeholder(tf.float32, shape=style_shapes[i], name='style_image'+'i')
+            style_image_pre = vgg.preprocess(style_image)
+            net = vgg.net(vgg_path, style_image_pre)
+            style_pre = np.array([style_targets[i]])
+            for layer in STYLE_LAYERS:
+                features = net[layer].eval(feed_dict={style_image:style_pre})
+                features = np.reshape(features, (-1, features.shape[3]))
+                gram = np.matmul(features.T, features) / features.size
+                style_features[i][layer] = gram
 
     with tf.Graph().as_default(), tf.Session() as sess:
         X_content = tf.placeholder(tf.float32, shape=batch_shape, name="X_content")
@@ -65,6 +67,10 @@ def optimize(content_targets, style_target, content_weight, style_weight,
             net[CONTENT_LAYER] - content_features[CONTENT_LAYER]) / content_size
         )
 
+        # Randomly select style image
+        import random
+        style_index = random.randint(0, num_styles)
+
         style_losses = []
         for style_layer in STYLE_LAYERS:
             layer = net[style_layer]
@@ -73,7 +79,7 @@ def optimize(content_targets, style_target, content_weight, style_weight,
             feats = tf.reshape(layer, (bs, height * width, filters))
             feats_T = tf.transpose(feats, perm=[0,2,1])
             grams = tf.matmul(feats_T, feats) / size
-            style_gram = style_features[style_layer]
+            style_gram = style_features[style_index][style_layer]
             style_losses.append(2 * tf.nn.l2_loss(grams - style_gram)/style_gram.size)
 
         style_loss = style_weight * functools.reduce(tf.add, style_losses) / batch_size
@@ -90,7 +96,6 @@ def optimize(content_targets, style_target, content_weight, style_weight,
         # overall loss
         train_step = tf.train.AdamOptimizer(learning_rate).minimize(loss)
         sess.run(tf.global_variables_initializer())
-        import random
         uid = random.randint(1, 100)
         print("UID: %s" % uid)
         for epoch in range(epochs):

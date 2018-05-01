@@ -27,9 +27,9 @@ def build_parser():
                         dest='checkpoint_dir', help='dir to save checkpoint in',
                         metavar='CHECKPOINT_DIR', required=True)
 
-    parser.add_argument('--style', type=str,
-                        dest='style', help='style image path',
-                        metavar='STYLE', required=True)
+    parser.add_argument('--style-path', type=str,
+                        dest='style_path', help='path to style image(s) folder',
+                        metavar='STYLE_PATH', required=True)
 
     parser.add_argument('--train-path', type=str,
                         dest='train_path', help='path to training images folder',
@@ -89,7 +89,7 @@ def build_parser():
 
 def check_opts(opts):
     exists(opts.checkpoint_dir, "checkpoint dir not found!")
-    exists(opts.style, "style path not found!")
+    exists(opts.style_path, "style path not found!")
     exists(opts.train_path, "train path not found!")
     if opts.test or opts.test_dir:
         exists(opts.test, "test img not found!")
@@ -114,7 +114,7 @@ def main():
     options = parser.parse_args()
     check_opts(options)
 
-    style_target = get_img(options.style)
+    style_targets = _get_files(options.style_path)
     if not options.slow:
         content_targets = _get_files(options.train_path)
     elif options.test:
@@ -137,7 +137,7 @@ def main():
 
     args = [
         content_targets,
-        style_target,
+        style_targets,
         options.content_weight,
         options.style_weight,
         options.tv_weight,

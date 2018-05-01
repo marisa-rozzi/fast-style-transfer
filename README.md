@@ -54,7 +54,7 @@ Our implementation uses TensorFlow to train a fast style transfer network. We us
 ### Training Style Transfer Networks
 Use `style.py` to train a new style transfer network. Run `python style.py` to view all the possible parameters. Training takes 4-6 hours on a Maxwell Titan X. [More detailed documentation here](docs.md#stylepy). **Before you run this, you should run `setup.sh`**. Example usage:
 
-    python style.py --style path/to/style/img.jpg \
+    python style.py --style-path style/path \
       --checkpoint-dir checkpoint/path \
       --test path/to/test/img.jpg \
       --test-dir path/to/test/dir \
