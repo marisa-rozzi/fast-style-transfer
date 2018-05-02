@@ -114,7 +114,9 @@ def main():
     options = parser.parse_args()
     check_opts(options)
 
-    style_targets = _get_files(options.style_path)
+    style_targets = []
+    for f in _get_files(options.style_path):
+        style_targets.append(get_img(f))
     if not options.slow:
         content_targets = _get_files(options.train_path)
     elif options.test:
