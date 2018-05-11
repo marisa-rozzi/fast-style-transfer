@@ -1,6 +1,7 @@
 from __future__ import print_function
 import functools
 import vgg, pdb, time
+import random
 import tensorflow as tf, numpy as np, os
 import transform
 from utils import get_img
@@ -8,6 +9,7 @@ from utils import get_img
 STYLE_LAYERS = ('relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1')
 CONTENT_LAYER = 'relu4_2'
 DEVICES = 'CUDA_VISIBLE_DEVICES'
+NUM_STYLES_TO_LOAD = 50
 
 # np arr, np arr
 def optimize(content_targets, style_targets, content_weight, style_weight,
@@ -21,25 +23,8 @@ def optimize(content_targets, style_targets, content_weight, style_weight,
         print("Train set has been trimmed slightly..")
         content_targets = content_targets[:-mod] 
 
-    num_styles = len(style_targets)
-    style_features = [{} for i in range(num_styles)]
-
     batch_shape = (batch_size,256,256,3)
-    style_shapes = [(1,) + style_targets[i].shape for i in range(num_styles)]
-    print(style_shapes)
-
-    # precompute style features
-    with tf.Graph().as_default(), tf.device('/cpu:0'), tf.Session() as sess:
-        for i in range(num_styles):
-            style_image = tf.placeholder(tf.float32, shape=style_shapes[i], name='style_image'+'i')
-            style_image_pre = vgg.preprocess(style_image)
-            net = vgg.net(vgg_path, style_image_pre)
-            style_pre = np.array([style_targets[i]])
-            for layer in STYLE_LAYERS:
-                features = net[layer].eval(feed_dict={style_image:style_pre})
-                features = np.reshape(features, (-1, features.shape[3]))
-                gram = np.matmul(features.T, features) / features.size
-                style_features[i][layer] = gram
+    style_features = [{} for i in range(NUM_STYLES_TO_LOAD)]
 
     with tf.Graph().as_default(), tf.Session() as sess:
         X_content = tf.placeholder(tf.float32, shape=batch_shape, name="X_content")
@@ -68,8 +53,7 @@ def optimize(content_targets, style_targets, content_weight, style_weight,
         )
 
         # Randomly select style image
-        import random
-        style_index = random.randint(0, num_styles)
+        style_index = random.randint(0, NUM_STYLES_TO_LOAD)
 
         style_losses = []
         for style_layer in STYLE_LAYERS:
@@ -109,6 +93,9 @@ def optimize(content_targets, style_targets, content_weight, style_weight,
                 for j, img_p in enumerate(content_targets[curr:step]):
                    X_batch[j] = get_img(img_p, (256,256,3)).astype(np.float32)
 
+                if iterations % (NUM_STYLES_TO_LOAD*2) == 0:
+                    style_features = _get_style_set(style_targets)
+
                 iterations += 1
                 assert X_batch.shape[0] == batch_size
 
@@ -141,6 +128,28 @@ def optimize(content_targets, style_targets, content_weight, style_weight,
                        saver = tf.train.Saver()
                        res = saver.save(sess, save_path)
                     yield(_preds, losses, iterations, epoch)
+
+def _get_style_set(style_targets):
+    num_styles = len(style_targets)
+    style_features = [{} for i in range(NUM_STYLES_TO_LOAD)]
+
+    selected_styles = random.sample(range(0, num_styles), NUM_STYLES_TO_LOAD)
+    style_shapes = [(1,) + style_targets[style].shape for style in selected_styles]
+
+    # precompute style features
+    with tf.Graph().as_default(), tf.device('/cpu:0'), tf.Session() as sess:
+        for i, style in selected_styles:
+            style_image = tf.placeholder(tf.float32, shape=style_shapes[i], name='style_image'+'i')
+            style_image_pre = vgg.preprocess(style_image)
+            net = vgg.net(vgg_path, style_image_pre)
+            style_pre = np.array([style_targets[style]])
+            for layer in STYLE_LAYERS:
+                features = net[layer].eval(feed_dict={style_image:style_pre})
+                features = np.reshape(features, (-1, features.shape[3]))
+                gram = np.matmul(features.T, features) / features.size
+                style_features[i][layer] = gram
+
+    return style_features
 
 def _tensor_size(tensor):
     from operator import mul
