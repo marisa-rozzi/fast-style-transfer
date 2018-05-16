@@ -24,7 +24,7 @@ def optimize(content_targets, style_targets, content_weight, style_weight,
         content_targets = content_targets[:-mod] 
 
     batch_shape = (batch_size,256,256,3)
-    style_features = [{} for i in range(NUM_STYLES_TO_LOAD)]
+    style_features = _get_style_set(style_targets, vgg_path)
 
     with tf.Graph().as_default(), tf.Session() as sess:
         X_content = tf.placeholder(tf.float32, shape=batch_shape, name="X_content")
@@ -94,7 +94,7 @@ def optimize(content_targets, style_targets, content_weight, style_weight,
                    X_batch[j] = get_img(img_p, (256,256,3)).astype(np.float32)
 
                 if iterations % (NUM_STYLES_TO_LOAD*2) == 0:
-                    style_features = _get_style_set(style_targets)
+                    style_features = _get_style_set(style_targets, vgg_path)
 
                 iterations += 1
                 assert X_batch.shape[0] == batch_size
@@ -129,7 +129,7 @@ def optimize(content_targets, style_targets, content_weight, style_weight,
                        res = saver.save(sess, save_path)
                     yield(_preds, losses, iterations, epoch)
 
-def _get_style_set(style_targets):
+def _get_style_set(style_targets, vgg_path):
     num_styles = len(style_targets)
     style_features = [{} for i in range(NUM_STYLES_TO_LOAD)]
 
@@ -138,7 +138,7 @@ def _get_style_set(style_targets):
 
     # precompute style features
     with tf.Graph().as_default(), tf.device('/cpu:0'), tf.Session() as sess:
-        for i, style in selected_styles:
+        for i, style in enumerate(selected_styles):
             style_image = tf.placeholder(tf.float32, shape=style_shapes[i], name='style_image'+'i')
             style_image_pre = vgg.preprocess(style_image)
             net = vgg.net(vgg_path, style_image_pre)
