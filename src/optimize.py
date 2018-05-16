@@ -139,7 +139,7 @@ def _get_style_set(style_targets, vgg_path):
     # precompute style features
     with tf.Graph().as_default(), tf.device('/cpu:0'), tf.Session() as sess:
         for i, style in enumerate(selected_styles):
-            style_image = tf.placeholder(tf.float32, shape=style_shapes[i], name='style_image'+'i')
+            style_image = tf.placeholder(tf.float32, shape=style_shapes[i], name='style_image'+i)
             style_image_pre = vgg.preprocess(style_image)
             net = vgg.net(vgg_path, style_image_pre)
             style_pre = np.array([style_targets[style]])
